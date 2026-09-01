@@ -1,4 +1,3 @@
-
 package me.meow.lapisdiamond;
 
 import org.bukkit.Bukkit;
@@ -21,40 +20,33 @@ public class LapisDiamond extends JavaPlugin implements Listener {
 
     private boolean enabled = true;
 
-    // BlockData mà người chơi sẽ nhìn thấy
-    private BlockData diamondData;
+    private BlockData diamondOre;
+    private BlockData deepslateDiamondOre;
+    private BlockData air;
 
-    // Tên sound custom trong Resource Pack
     private static final String BREAK_SOUND =
             "lapisdiamond.lapis_break";
 
     @Override
     public void onEnable() {
 
-        // Diamond Ore dùng để giả lập hiển thị
-        diamondData = Bukkit.createBlockData(Material.DIAMOND_ORE);
+        diamondOre =
+                Bukkit.createBlockData(Material.DIAMOND_ORE);
 
-        // Đăng ký event
+        deepslateDiamondOre =
+                Bukkit.createBlockData(Material.DEEPSLATE_DIAMOND_ORE);
+
+        air =
+                Bukkit.createBlockData(Material.AIR);
+
         Bukkit.getPluginManager().registerEvents(this, this);
 
-        getLogger().info("=================================");
-        getLogger().info("LapisDiamond đã được bật!");
-        getLogger().info("Lapis Ore -> Diamond Ore");
-        getLogger().info("Drop vẫn là Lapis Lazuli");
-        getLogger().info("=================================");
+        getLogger().info("LapisDiamond enabled!");
     }
 
-    @Override
-    public void onDisable() {
-
-        getLogger().info("LapisDiamond đã tắt!");
-    }
-
-    /*
-     * ==========================================
-     * PLAYER JOIN
-     * ==========================================
-     */
+    // =========================================================
+    // PLAYER JOIN
+    // =========================================================
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
@@ -65,19 +57,16 @@ public class LapisDiamond extends JavaPlugin implements Listener {
 
         Player player = event.getPlayer();
 
-        // Chờ client load xong
         Bukkit.getScheduler().runTaskLater(
                 this,
-                () -> refreshLoadedChunks(player),
+                () -> refreshPlayer(player),
                 20L
         );
     }
 
-    /*
-     * ==========================================
-     * CHUNK LOAD
-     * ==========================================
-     */
+    // =========================================================
+    // CHUNK LOAD
+    // =========================================================
 
     @EventHandler
     public void onChunkLoad(ChunkLoadEvent event) {
@@ -87,9 +76,6 @@ public class LapisDiamond extends JavaPlugin implements Listener {
         }
 
         Chunk chunk = event.getChunk();
-
-        int chunkX = chunk.getX();
-        int chunkZ = chunk.getZ();
 
         for (Player player : Bukkit.getOnlinePlayers()) {
 
@@ -103,22 +89,26 @@ public class LapisDiamond extends JavaPlugin implements Listener {
             int playerChunkZ =
                     player.getLocation().getBlockZ() >> 4;
 
-            /*
-             * Chỉ disguise chunk mà player đang đứng.
-             */
-            if (playerChunkX == chunkX &&
-                playerChunkZ == chunkZ) {
+            int chunkX = chunk.getX();
+            int chunkZ = chunk.getZ();
+
+            int distanceX =
+                    Math.abs(playerChunkX - chunkX);
+
+            int distanceZ =
+                    Math.abs(playerChunkZ - chunkZ);
+
+            if (distanceX <= Bukkit.getViewDistance()
+                    && distanceZ <= Bukkit.getViewDistance()) {
 
                 disguiseChunk(player, chunk);
             }
         }
     }
 
-    /*
-     * ==========================================
-     * BLOCK BREAK
-     * ==========================================
-     */
+    // =========================================================
+    // BLOCK BREAK
+    // =========================================================
 
     @EventHandler
     public void onBlockBreak(BlockBreakEvent event) {
@@ -131,25 +121,22 @@ public class LapisDiamond extends JavaPlugin implements Listener {
 
         Material type = block.getType();
 
-        /*
-         * Chỉ xử lý Lapis Ore.
-         */
-        if (type != Material.LAPIS_ORE &&
-            type != Material.DEEPSLATE_LAPIS_ORE) {
+        if (type != Material.LAPIS_ORE
+                && type != Material.DEEPSLATE_LAPIS_ORE) {
 
             return;
         }
 
-        /*
-         * ======================================
-         * PHÁT ÂM THANH
-         * ======================================
-         *
-         * Sound này nằm trong Resource Pack.
-         */
+        // Phát sound custom cho người chơi gần block
         for (Player player : Bukkit.getOnlinePlayers()) {
 
             if (!player.getWorld().equals(block.getWorld())) {
+                continue;
+            }
+
+            if (player.getLocation()
+                    .distanceSquared(block.getLocation()) > 64 * 64) {
+
                 continue;
             }
 
@@ -163,95 +150,69 @@ public class LapisDiamond extends JavaPlugin implements Listener {
         }
 
         /*
-         * Bukkit vẫn phá block thật.
+         * Không cancel event.
          *
-         * Vì block thật vẫn là Lapis Ore
-         * nên drop vẫn là Lapis Lazuli.
+         * Server vẫn phá LAPIS_ORE thật.
+         * Vì vậy drop vẫn là Lapis Lazuli.
          */
 
         Bukkit.getScheduler().runTaskLater(
                 this,
-                () -> updateBrokenBlock(block),
+                () -> {
+
+                    // Nếu đã phá thành AIR,
+                    // gửi AIR cho client.
+                    if (block.getType() == Material.AIR) {
+
+                        for (Player player :
+                                Bukkit.getOnlinePlayers()) {
+
+                            if (!player.getWorld()
+                                    .equals(block.getWorld())) {
+                                continue;
+                            }
+
+                            player.sendBlockChange(
+                                    block.getLocation(),
+                                    air
+                            );
+                        }
+                    }
+
+                },
                 1L
         );
     }
 
-    /*
-     * ==========================================
-     * UPDATE SAU KHI PHÁ
-     * ==========================================
-     */
+    // =========================================================
+    // DISGUISE BLOCK
+    // =========================================================
 
-    private void updateBrokenBlock(Block block) {
-
-        /*
-         * Nếu block đã bị phá thì client phải
-         * nhìn thấy AIR.
-         */
-        if (block.getType() == Material.AIR) {
-
-            for (Player player : Bukkit.getOnlinePlayers()) {
-
-                if (!player.getWorld().equals(block.getWorld())) {
-                    continue;
-                }
-
-                player.sendBlockChange(
-                        block.getLocation(),
-                        Bukkit.createBlockData(Material.AIR)
-                );
-            }
-
-            return;
-        }
-
-        /*
-         * Trường hợp block vẫn còn là Lapis
-         */
-        updateBlockForPlayers(block);
-    }
-
-    /*
-     * ==========================================
-     * UPDATE BLOCK HIỂN THỊ
-     * ==========================================
-     */
-
-    private void updateBlockForPlayers(Block block) {
-
-        if (!enabled) {
-            return;
-        }
+    private void disguiseBlock(
+            Player player,
+            Block block) {
 
         Material type = block.getType();
 
-        if (type != Material.LAPIS_ORE &&
-            type != Material.DEEPSLATE_LAPIS_ORE) {
-
-            return;
-        }
-
-        /*
-         * Gửi Diamond Ore giả cho tất cả player
-         */
-        for (Player player : Bukkit.getOnlinePlayers()) {
-
-            if (!player.getWorld().equals(block.getWorld())) {
-                continue;
-            }
+        if (type == Material.LAPIS_ORE) {
 
             player.sendBlockChange(
                     block.getLocation(),
-                    diamondData
+                    diamondOre
+            );
+
+        } else if (type == Material.DEEPSLATE_LAPIS_ORE) {
+
+            player.sendBlockChange(
+                    block.getLocation(),
+                    deepslateDiamondOre
             );
         }
     }
 
-    /*
-     * ==========================================
-     * DISGUISE CHUNK
-     * ==========================================
-     */
+    // =========================================================
+    // DISGUISE CHUNK
+    // =========================================================
 
     private void disguiseChunk(
             Player player,
@@ -267,9 +228,6 @@ public class LapisDiamond extends JavaPlugin implements Listener {
         int maxY =
                 player.getWorld().getMaxHeight();
 
-        /*
-         * Duyệt toàn bộ block trong chunk.
-         */
         for (int x = 0; x < 16; x++) {
 
             for (int z = 0; z < 16; z++) {
@@ -279,32 +237,17 @@ public class LapisDiamond extends JavaPlugin implements Listener {
                     Block block =
                             chunk.getBlock(x, y, z);
 
-                    Material type =
-                            block.getType();
-
-                    /*
-                     * Lapis Ore
-                     */
-                    if (type == Material.LAPIS_ORE ||
-                        type == Material.DEEPSLATE_LAPIS_ORE) {
-
-                        player.sendBlockChange(
-                                block.getLocation(),
-                                diamondData
-                        );
-                    }
+                    disguiseBlock(player, block);
                 }
             }
         }
     }
 
-    /*
-     * ==========================================
-     * REFRESH CHUNK
-     * ==========================================
-     */
+    // =========================================================
+    // REFRESH PLAYER
+    // =========================================================
 
-    private void refreshLoadedChunks(Player player) {
+    private void refreshPlayer(Player player) {
 
         if (!enabled) {
             return;
@@ -316,15 +259,9 @@ public class LapisDiamond extends JavaPlugin implements Listener {
         int centerZ =
                 player.getLocation().getBlockZ() >> 4;
 
-        /*
-         * Lấy view distance server.
-         */
         int viewDistance =
                 Bukkit.getViewDistance();
 
-        /*
-         * Duyệt các chunk xung quanh player.
-         */
         for (int x = centerX - viewDistance;
              x <= centerX + viewDistance;
              x++) {
@@ -333,27 +270,24 @@ public class LapisDiamond extends JavaPlugin implements Listener {
                  z <= centerZ + viewDistance;
                  z++) {
 
-                if (!player.getWorld().isChunkLoaded(x, z)) {
+                if (!player.getWorld()
+                        .isChunkLoaded(x, z)) {
+
                     continue;
                 }
 
                 Chunk chunk =
-                        player.getWorld().getChunkAt(x, z);
+                        player.getWorld()
+                                .getChunkAt(x, z);
 
                 disguiseChunk(player, chunk);
             }
         }
     }
 
-    /*
-     * ==========================================
-     * COMMAND
-     * ==========================================
-     *
-     * /lapisdiamond
-     * /lapisdiamond on
-     * /lapisdiamond off
-     */
+    // =========================================================
+    // COMMAND
+    // =========================================================
 
     @Override
     public boolean onCommand(
@@ -368,93 +302,47 @@ public class LapisDiamond extends JavaPlugin implements Listener {
             return false;
         }
 
-        /*
-         * Không có argument
-         */
+        // /lapisdiamond
         if (args.length == 0) {
 
             sender.sendMessage(
-                    "§eLapisDiamond: §f"
-                    + (enabled ? "ON" : "OFF")
-            );
-
-            sender.sendMessage(
-                    "§7Dùng: §f/lapisdiamond <on|off>"
+                    "§eLapisDiamond: "
+                    + (enabled ? "§aON" : "§cOFF")
             );
 
             return true;
         }
 
-        /*
-         * ======================================
-         * ON
-         * ======================================
-         */
-
+        // /lapisdiamond on
         if (args[0].equalsIgnoreCase("on")) {
 
             enabled = true;
 
-            /*
-             * Disguise lại cho tất cả player
-             */
             for (Player player :
                     Bukkit.getOnlinePlayers()) {
 
-                refreshLoadedChunks(player);
+                refreshPlayer(player);
             }
 
             sender.sendMessage(
-                    "§a✔ LapisDiamond đã BẬT!"
-            );
-
-            sender.sendMessage(
-                    "§7Lapis Ore hiện thành Diamond Ore."
+                    "§aLapisDiamond đã BẬT!"
             );
 
             return true;
         }
 
-        /*
-         * ======================================
-         * OFF
-         * ======================================
-         */
-
+        // /lapisdiamond off
         if (args[0].equalsIgnoreCase("off")) {
 
             enabled = false;
 
-            /*
-             * Reload chunk để trả block về
-             * trạng thái thật.
-             */
-            for (Player player :
-                    Bukkit.getOnlinePlayers()) {
-
-                player.sendMessage(
-                        "§cLapisDiamond đã TẮT!"
-                );
-
-                /*
-                 * Gửi lại chunk thật cho client.
-                 */
-                player.getWorld().refreshChunk(
-                        player.getLocation().getBlockX() >> 4,
-                        player.getLocation().getBlockZ() >> 4
-                );
-            }
-
             sender.sendMessage(
-                    "§c✔ LapisDiamond đã TẮT!"
+                    "§cLapisDiamond đã TẮT!"
             );
 
             return true;
         }
 
-        /*
-         * Sai command
-         */
         sender.sendMessage(
                 "§cDùng: /lapisdiamond <on|off>"
         );
