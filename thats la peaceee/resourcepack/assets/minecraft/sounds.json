@@ -1,7 +1,10 @@
 {
   "lapis_break": {
     "sounds": [
-      "lapis_break"
+      {
+        "name": "lapisdiamond:lapis_break",
+        "stream": false
+      }
     ]
   }
 }
