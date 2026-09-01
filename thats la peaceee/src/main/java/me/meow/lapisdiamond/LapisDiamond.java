@@ -1,17 +1,3 @@
-Today 10:18 AM
-bắt đầu lại từ đầu khúc này
-Pasted code.java
-File
-
-Đúng, tạm thời bỏ qua texture và âm thanh. Mình xử lý trước lỗi đập Lapis nhưng block không đổi sang Diamond.
-
-Vấn đề là code cũ dùng sendBlockChange() nhưng chỉ gửi một lần. Client có thể nhận lại trạng thái thật từ server nên Diamond biến mất.
-
-Cách test đơn giản nhất: không cần Resource Pack.
-
-Sửa LapisDiamond.java
-
-Trong onBlockBreak(), thay toàn bộ phần xử lý bằng đoạn này:
 
 @EventHandler
 public void onBlockBreak(BlockBreakEvent event) {
@@ -992,28 +978,3 @@ public class LapisDiamond extends JavaPlugin implements Listener {
         return true;
     }
 }
-Sau khi thay code
-
-1. Commit/push lên GitHub.
-
-2. Chờ Actions build xanh ✅.
-
-3. Tải .jar mới.
-
-4. Xóa JAR cũ trong:
-
-plugins/
-
-rồi bỏ JAR mới vào.
-
-5. Restart server, không dùng /reload.
-
-6. Vào server và chạy:
-
-/lapisdiamond on
-
-Sau đó đi tới một khu vực có Lapis mới.
-
-⚠️ Một điểm rất quan trọng: nếu với file hoàn chỉnh này mà Lapis vẫn không đổi, thì mình sẽ không bắt bạn sửa Java tiếp nữa. Khi đó gần như chắc chắn sendBlockChange() đang bị client/server ghi đè, và ta sẽ chuyển sang cách packet/Resource Pack, ổn định hơn.
-
-Nếu vẫn không đổi, gửi mình ảnh console lúc server khởi động + ảnh /lapisdiamond, mình xử lý bước đó.
