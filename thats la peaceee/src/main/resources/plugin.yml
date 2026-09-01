@@ -1,0 +1,17 @@
+name: LapisDiamond
+version: 1.0.0
+main: me.meow.lapisdiamond.LapisDiamond
+description: Makes Lapis Ore appear as Diamond Ore
+author: meow
+api-version: '26.2'
+
+commands:
+  lapisdiamond:
+    description: Toggle LapisDiamond
+    usage: /lapisdiamond <on|off>
+    permission: lapisdiamond.admin
+
+permissions:
+  lapisdiamond.admin:
+    description: Allows use of /lapisdiamond
+    default: op
